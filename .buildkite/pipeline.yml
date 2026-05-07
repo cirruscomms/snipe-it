@@ -1,0 +1,41 @@
+env:
+  ENVIRONMENT: "testing"
+  APP_GROUP: "snipe-it"
+  APP_NAME: "snipe-it"
+  HARBOR_REGISTRY: "harbor.local"
+
+steps:
+  - label: ":docker: Build FPM Image"
+    key: "build-fpm"
+    agents:
+      queue: "testing"
+    plugins:
+      - cwarwick-swoop/kaniko-build#v1.0.0:
+          dockerfile: docker/Dockerfile.production
+
+  - label: ":kubernetes: Deploy FPM"
+    key: "deploy-fpm"
+    depends_on: "build-fpm"
+    agents:
+      queue: "testing"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          container_name: "fpm"
+
+  - label: ":kubernetes: Deploy Scheduler"
+    key: "deploy-scheduler"
+    depends_on: "deploy-fpm"
+    agents:
+      queue: "testing"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          container_name: "scheduler"
+
+  - label: ":kubernetes: Deploy Init Container"
+    key: "deploy-init"
+    depends_on: "deploy-scheduler"
+    agents:
+      queue: "testing"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          image_key: "spec.template.spec.initContainers[0].image"
