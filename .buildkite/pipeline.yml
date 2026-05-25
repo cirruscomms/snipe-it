@@ -1,41 +1,100 @@
 env:
-  ENVIRONMENT: "testing"
   APP_GROUP: "snipe-it"
   APP_NAME: "snipe-it"
   HARBOR_REGISTRY: "harbor.local"
 
 steps:
+  - block: ":lock: deploy testing?"
+    key: "deploy-testing-block"
+
   - label: ":docker: Build FPM Image"
-    key: "build-fpm"
+    key: "build-fpm-testing"
+    depends_on: "deploy-testing-block"
     agents:
       queue: "testing"
+    env:
+      ENVIRONMENT: "testing"
     plugins:
       - cwarwick-swoop/kaniko-build#v1.0.0:
           dockerfile: docker/Dockerfile.production
 
   - label: ":kubernetes: Deploy FPM"
-    key: "deploy-fpm"
-    depends_on: "build-fpm"
+    key: "deploy-fpm-testing"
+    depends_on: "build-fpm-testing"
     agents:
       queue: "testing"
+    env:
+      ENVIRONMENT: "testing"
     plugins:
       - cwarwick-swoop/k8s-deploy#v1.0.0:
           container_name: "fpm"
 
   - label: ":kubernetes: Deploy Scheduler"
-    key: "deploy-scheduler"
-    depends_on: "deploy-fpm"
+    key: "deploy-scheduler-testing"
+    depends_on: "deploy-fpm-testing"
     agents:
       queue: "testing"
+    env:
+      ENVIRONMENT: "testing"
     plugins:
       - cwarwick-swoop/k8s-deploy#v1.0.0:
           container_name: "scheduler"
 
   - label: ":kubernetes: Deploy Init Container"
-    key: "deploy-init"
-    depends_on: "deploy-scheduler"
+    key: "deploy-init-testing"
+    depends_on: "deploy-scheduler-testing"
     agents:
       queue: "testing"
+    env:
+      ENVIRONMENT: "testing"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          image_key: "spec.template.spec.initContainers[0].image"
+
+  - block: ":lock: deploy production?"
+    key: "deploy-production-block"
+    depends_on: ~
+
+  - label: ":docker: Build FPM Image"
+    key: "build-fpm-production"
+    depends_on: "deploy-production-block"
+    agents:
+      queue: "production"
+    env:
+      ENVIRONMENT: "production"
+    plugins:
+      - cwarwick-swoop/kaniko-build#v1.0.0:
+          dockerfile: docker/Dockerfile.production
+
+  - label: ":kubernetes: Deploy FPM"
+    key: "deploy-fpm-production"
+    depends_on: "build-fpm-production"
+    agents:
+      queue: "production"
+    env:
+      ENVIRONMENT: "production"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          container_name: "fpm"
+
+  - label: ":kubernetes: Deploy Scheduler"
+    key: "deploy-scheduler-production"
+    depends_on: "deploy-fpm-production"
+    agents:
+      queue: "production"
+    env:
+      ENVIRONMENT: "production"
+    plugins:
+      - cwarwick-swoop/k8s-deploy#v1.0.0:
+          container_name: "scheduler"
+
+  - label: ":kubernetes: Deploy Init Container"
+    key: "deploy-init-production"
+    depends_on: "deploy-scheduler-production"
+    agents:
+      queue: "production"
+    env:
+      ENVIRONMENT: "production"
     plugins:
       - cwarwick-swoop/k8s-deploy#v1.0.0:
           image_key: "spec.template.spec.initContainers[0].image"
