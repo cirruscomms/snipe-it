@@ -4,7 +4,7 @@ env:
   HARBOR_REGISTRY: "harbor.local"
 
 steps:
-  - block: "deploy testing?"
+  - block: ":lock: deploy testing?"
     key: "deploy-testing-block"
 
   - label: ":docker: Build FPM Image"
@@ -51,8 +51,9 @@ steps:
       - cwarwick-swoop/k8s-deploy#v1.0.0:
           image_key: "spec.template.spec.initContainers[0].image"
 
-  - block: "deploy production?"
+  - block: ":lock: deploy production?"
     key: "deploy-production-block"
+    depends_on: ~
 
   - label: ":docker: Build FPM Image"
     key: "build-fpm-production"
